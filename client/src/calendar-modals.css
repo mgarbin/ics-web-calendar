@@ -1,4 +1,4 @@
-/* Stili minimi per i modal usati dal calendario (event details e show-more) */
+/* Stili minimi per i modal usati dal calendario (event details, show-more e print modal) */
 
 .rbc-modal-backdrop {
   position: fixed;
@@ -61,7 +61,12 @@
 .muted { color: #666; font-size: 0.9rem; }
 .rbc-event-description { margin-top: 8px; color: #333; }
 
-/* Manteniamo la stampa nascosta per il calendario per sicurezza */
+/* Stili per i form nel modal di stampa */
+.rbc-modal-body label { display: inline-block; margin-right: 12px; }
+.rbc-modal-body input[type="date"] { margin-left: 6px; padding: 4px; }
+.rbc-modal-body select { margin-left: 6px; padding: 4px; }
+
+/* Manteniamo la stampa nascosta per il calendario nell'app (ma abilitiamo la stampa dal modal) */
 @media print {
   .rbc-calendar, .rbc-toolbar { display: none !important; }
 }
