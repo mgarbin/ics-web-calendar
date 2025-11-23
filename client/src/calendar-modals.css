@@ -1,0 +1,67 @@
+/* Stili minimi per i modal usati dal calendario (event details e show-more) */
+
+.rbc-modal-backdrop {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.rbc-modal {
+  background: #fff;
+  border-radius: 6px;
+  width: 92%;
+  max-width: 820px;
+  max-height: 88vh;
+  overflow: auto;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+}
+
+.rbc-modal.large { max-width: 1100px; }
+
+.rbc-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #eee;
+}
+
+.rbc-modal-body {
+  padding: 12px 16px;
+  color: #222;
+}
+
+.rbc-modal-footer {
+  padding: 12px 16px;
+  border-top: 1px solid #eee;
+  text-align: right;
+}
+
+.rbc-modal-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.rbc-modal-header button {
+  background: transparent;
+  border: none;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.event-item { margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px dashed #eee; }
+.muted { color: #666; font-size: 0.9rem; }
+.rbc-event-description { margin-top: 8px; color: #333; }
+
+/* Manteniamo la stampa nascosta per il calendario per sicurezza */
+@media print {
+  .rbc-calendar, .rbc-toolbar { display: none !important; }
+}

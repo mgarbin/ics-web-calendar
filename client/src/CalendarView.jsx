@@ -5,16 +5,22 @@ import parse from 'date-fns/parse';
 import startOfWeek from 'date-fns/startOfWeek';
 import getDay from 'date-fns/getDay';
 import itLocale from 'date-fns/locale/it';
+import enUS from 'date-fns/locale/en-US';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { fetchIcs } from './icsService';
+import './calendar-modals.css';
+
+const userLang = (typeof navigator !== 'undefined' ? (navigator.language || navigator.userLanguage || 'en') : 'en').split('-')[0];
 
 const locales = {
-  'it': itLocale
+  it: itLocale,
+  en: enUS
 };
+
 const localizer = dateFnsLocalizer({
   format,
   parse,
-  startOfWeek: () => startOfWeek(new Date(), { locale: itLocale }),
+  startOfWeek: () => startOfWeek(new Date(), { locale: locales[userLang] || enUS }),
   getDay,
   locales
 });
@@ -23,19 +29,17 @@ export default function CalendarView({ icsUrl }) {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [view, setView] = useState(Views.MONTH);
-  const [printRange, setPrintRange] = useState({
-    from: format(new Date(), 'yyyy-MM-dd'),
-    to: format(new Date(new Date().getTime() + 7*24*3600*1000), 'yyyy-MM-dd')
-  });
+
+  // UI state per modal e selezione evento
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [showMoreModal, setShowMoreModal] = useState({ open: false, date: null, events: [] });
 
   useEffect(() => {
     let mounted = true;
     async function load() {
       setLoading(true);
       try {
-        // Assumi server su stessa origine (proxy) /api/ics
         const data = await fetchIcs(icsUrl);
-        // react-big-calendar vuole Date oggetti su start/end
         const mapped = data.events.map(ev => ({
           id: ev.id,
           title: ev.title,
@@ -60,65 +64,6 @@ export default function CalendarView({ icsUrl }) {
   // Lista di viste abilitare incl. work_week
   const allViews = useMemo(() => [Views.MONTH, Views.WEEK, 'work_week', Views.DAY, Views.AGENDA], []);
 
-  const handlePrint = () => {
-    // filtra eventi nel range
-    const from = new Date(printRange.from);
-    const to = new Date(printRange.to);
-    // include tutto il giorno di 'to'
-    to.setHours(23,59,59,999);
-
-    const eventsToPrint = events.filter(ev => {
-      return ev.start <= to && ev.end >= from;
-    }).sort((a,b)=>a.start-b.start);
-
-    // Costruisci html stampabile e apri nuova finestra
-    const win = window.open('', '_blank');
-    const style = `
-      <style>
-        @page { size: A4 portrait; margin: 20mm; }
-        body { font-family: Arial, Helvetica, sans-serif; color: #111; }
-        h1 { font-size: 18px; margin-bottom: 8px; }
-        .event { margin-bottom: 8px; border-bottom: 1px solid #ddd; padding-bottom: 6px; }
-        .meta { color: #555; font-size: 0.95rem; }
-        .title { font-weight: bold; font-size: 1.05rem; }
-        .day { margin-top: 12px; margin-bottom: 6px; font-weight: bold; font-size: 1.05rem; }
-        table { width: 100%; border-collapse: collapse; }
-        @media print {
-          body { -webkit-print-color-adjust: exact; }
-        }
-      </style>
-    `;
-    let html = `<!doctype html><html><head><meta charset="utf-8">${style}</head><body>`;
-    html += `<h1>Calendario: ${eventsToPrint.length} eventi (${formatDate(from)} → ${formatDate(to)})</h1>`;
-
-    if (eventsToPrint.length === 0) {
-      html += '<p>Nessun evento nel range selezionato.</p>';
-    } else {
-      // raggruppa per giorno
-      const groups = {};
-      eventsToPrint.forEach(ev => {
-        const dayKey = ev.start.toISOString().slice(0,10);
-        if (!groups[dayKey]) groups[dayKey] = [];
-        groups[dayKey].push(ev);
-      });
-      for (const day of Object.keys(groups).sort()) {
-        html += `<div class="day">${day}</div>`;
-        groups[day].forEach(ev => {
-          html += `<div class="event">
-            <div class="title">${escapeHtml(ev.title)}</div>
-            <div class="meta">${formatDateTime(ev.start)} — ${formatDateTime(ev.end)}${ev.location ? ' • ' + escapeHtml(ev.location) : ''}</div>
-            ${ev.description ? `<div class="desc">${escapeHtml(ev.description)}</div>` : ''}
-          </div>`;
-        });
-      }
-    }
-
-    html += `<script>setTimeout(()=>window.print(),300);</script></body></html>`;
-    win.document.open();
-    win.document.write(html);
-    win.document.close();
-  };
-
   return (
     <main>
       <section style={{ marginBottom: 12 }}>
@@ -135,13 +80,7 @@ export default function CalendarView({ icsUrl }) {
         </div>
 
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          <div>
-            <label>Da: <input type="date" value={printRange.from} onChange={e => setPrintRange({...printRange, from: e.target.value})} /></label>
-          </div>
-          <div>
-            <label>A: <input type="date" value={printRange.to} onChange={e => setPrintRange({...printRange, to: e.target.value})} /></label>
-          </div>
-          <button onClick={handlePrint}>Stampa (A4)</button>
+          {/* Nota: la funzionalità di stampa è stata rimossa per rispettare la richiesta */}
           {loading && <span style={{ marginLeft: 8 }}>Caricamento...</span>}
         </div>
       </section>
@@ -163,26 +102,78 @@ export default function CalendarView({ icsUrl }) {
             }
           }}
           components={{
-            // puoi aggiungere override (opzionale)
+            // possibile override futuro
           }}
           style={{ height: '100%' }}
           formats={{
-            weekdayFormat: (date, culture, localizer) => format(date, 'iiii', { locale: itLocale })
+            weekdayFormat: (date, culture, localizer) => format(date, 'iiii', { locale: locales[userLang] || enUS })
+          }}
+          // mostra al massimo 3 eventi e poi il link "+X"
+          dayMaxEvents={3}
+          onSelectEvent={(event) => {
+            setSelectedEvent(event);
+          }}
+          onShowMore={(eventsList, date) => {
+            // eventsList è l'array di eventi non mostrati; apri modal con gli eventi completi del giorno
+            setShowMoreModal({ open: true, date, events: eventsList });
           }}
         />
       </section>
+
+      {/* Modal singolo evento */}
+      {selectedEvent && (
+        <div className="rbc-modal-backdrop" onClick={() => setSelectedEvent(null)}>
+          <div className="rbc-modal" onClick={e => e.stopPropagation()}>
+            <div className="rbc-modal-header">
+              <h3>{selectedEvent.title || 'Evento'}</h3>
+              <button onClick={() => setSelectedEvent(null)}>×</button>
+            </div>
+            <div className="rbc-modal-body">
+              <p><strong>Inizio:</strong> {selectedEvent.start ? new Date(selectedEvent.start).toLocaleString() : '-'}</p>
+              <p><strong>Fine:</strong> {selectedEvent.end ? new Date(selectedEvent.end).toLocaleString() : '-'}</p>
+              {selectedEvent.location && <p><strong>Luogo:</strong> {selectedEvent.location}</p>}
+              {selectedEvent.description && (
+                <div className="rbc-event-description" dangerouslySetInnerHTML={{ __html: escapeHtml(selectedEvent.description) }} />
+              )}
+              {selectedEvent.url && <p><a href={selectedEvent.url} target="_blank" rel="noreferrer">Apri link evento</a></p>}
+            </div>
+            <div className="rbc-modal-footer">
+              <button onClick={() => setSelectedEvent(null)}>Chiudi</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal lista eventi (quando +X) */}
+      {showMoreModal.open && (
+        <div className="rbc-modal-backdrop" onClick={() => setShowMoreModal({ open: false, date: null, events: [] })}>
+          <div className="rbc-modal large" onClick={e => e.stopPropagation()}>
+            <div className="rbc-modal-header">
+              <h3>Eventi del {showMoreModal.date instanceof Date ? showMoreModal.date.toLocaleDateString() : String(showMoreModal.date)}</h3>
+              <button onClick={() => setShowMoreModal({ open: false, date: null, events: [] })}>×</button>
+            </div>
+            <div className="rbc-modal-body">
+              {(!showMoreModal.events || showMoreModal.events.length === 0) && <p>Nessun evento</p>}
+              {showMoreModal.events.map((ev, idx) => (
+                <div key={idx} className="event-item">
+                  <h4>{ev.title || '(senza titolo)'}</h4>
+                  <div className="muted">{ev.start ? new Date(ev.start).toLocaleString() : ''} - {ev.end ? new Date(ev.end).toLocaleString() : ''}</div>
+                  {ev.description && <div dangerouslySetInnerHTML={{ __html: escapeHtml(ev.description) }} />}
+                </div>
+              ))}
+            </div>
+            <div className="rbc-modal-footer">
+              <button onClick={() => setShowMoreModal({ open: false, date: null, events: [] })}>Chiudi</button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
 
 // Helpers
-function formatDate(d) {
-  return d.toLocaleDateString();
-}
-function formatDateTime(d) {
-  return d.toLocaleString();
-}
 function escapeHtml(text) {
   if (!text) return '';
-  return text.replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[m]));
+  return String(text).replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[m]));
 }

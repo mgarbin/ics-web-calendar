@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import CalendarView from './CalendarView';
-import './print.css';
+import './index.css';
 
 /**
  * Client-side URL validation:
