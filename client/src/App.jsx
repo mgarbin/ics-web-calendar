@@ -20,7 +20,7 @@ function clientValidateUrl(url) {
   }
   // opzionale: incoraggiare .ics
   if (!/\.ics(\?.*)?$/i.test(parsed.pathname)) {
-    return { ok: true, reason: 'L\\'URL non termina con .ics; il server verificherà comunque il file' };
+    return { ok: true, reason: 'URL non termina con .ics; il server verificherà comunque il file' };
   }
   return { ok: true };
 }
